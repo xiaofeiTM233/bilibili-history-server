@@ -1,0 +1,36 @@
+# 敏感配置文件
+config.json
+
+# 敏感数据文件
+data/history.json
+
+# 依赖目录
+node_modules/
+
+# 系统文件
+.DS_Store
+
+# 开发工具临时文件
+.cursorindexingignore
+.specstory/
+
+# 日志文件
+*.log
+
+# 环境变量文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 构建输出目录
+dist/
+build/
+
+# 其他临时文件
+*.swp
+*.swo
+
+# 依赖锁定文件
+package-lock.json 

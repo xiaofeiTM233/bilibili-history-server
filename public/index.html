@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bilibili 无限历史记录</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .history-item {
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .history-item:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 1.5px 4px rgba(0,0,0,0.08);
+        }
+        .cover-img {
+            aspect-ratio: 16/9;
+            object-fit: cover;
+            width: 100%;
+            border-top-left-radius: 0.75rem;
+            border-top-right-radius: 0.75rem;
+            background: #f3f4f6;
+        }
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="max-w-7xl mx-auto px-2 sm:px-4 py-8">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 gap-4">
+            <h1 class="text-3xl font-extrabold text-pink-500 tracking-tight">Bilibili 无限历史记录</h1>
+            <div class="flex gap-2 flex-wrap items-center">
+                <button id="datePrev" class="px-2 py-1 border rounded bg-gray-50 hover:bg-gray-100 text-gray-500 text-sm">-</button>
+                <input type="date" id="dateInput" class="px-3 py-2 border rounded focus:outline-none focus:border-blue-500 text-sm">
+                <button id="dateNext" class="px-2 py-1 border rounded bg-gray-50 hover:bg-gray-100 text-gray-500 text-sm">+</button>
+                <div class="relative" style="width: 160px;">
+                    <input type="text" id="authorInput" placeholder="搜索UP主..." class="px-3 py-2 border rounded focus:outline-none focus:border-blue-500 text-sm w-full pr-8">
+                    <button id="clearAuthor" class="absolute right-2 top-2 -translate-y-1/2 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-1 transition-colors hidden" tabindex="-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <div class="relative" style="width: 200px;">
+                    <input type="text" id="searchInput" placeholder="搜索标题..." class="px-3 py-2 border rounded focus:outline-none focus:border-blue-500 text-sm w-full pr-8">
+                    <button id="clearTitle" class="absolute right-2 top-2 -translate-y-1/2 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-1 transition-colors hidden" tabindex="-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <button id="syncBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm font-semibold">同步历史</button>
+            </div>
+        </div>
+
+        <div id="historyList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <!-- 历史记录将在这里动态加载 -->
+        </div>
+
+        <div id="loading" class="text-center py-8 hidden">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+        </div>
+
+        <div id="noMore" class="text-center py-8 text-gray-500 hidden">
+            没有更多记录了
+        </div>
+    </div>
+
+    <!-- 设置按钮 -->
+    <button id="settingsBtn" class="fixed top-4 right-4 bg-white rounded-full shadow p-2 hover:bg-gray-100 transition-colors z-50 sm:absolute sm:top-6 sm:right-6">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7zm7.94-2.06a1 1 0 0 0 .26-1.09l-1-1.73a1 1 0 0 1 .21-1.18l1.51-1.51a1 1 0 0 0 0-1.41l-2.12-2.12a1 1 0 0 0-1.41 0l-1.51 1.51a1 1 0 0 1-1.18.21l-1.73-1a1 1 0 0 0-1.09.26l-1.06 1.06a1 1 0 0 1-1.41 0l-1.06-1.06a1 1 0 0 0-1.09-.26l-1.73 1a1 1 0 0 1-1.18-.21l-1.51-1.51a1 1 0 0 0-1.41 0L2.34 8.34a1 1 0 0 0 0 1.41l1.51 1.51a1 1 0 0 1 .21 1.18l-1 1.73a1 1 0 0 0 .26 1.09l1.06 1.06a1 1 0 0 1 0 1.41l-1.06 1.06a1 1 0 0 0-.26 1.09l1 1.73a1 1 0 0 1-.21 1.18l-1.51 1.51a1 1 0 0 0 0 1.41l2.12 2.12a1 1 0 0 0 1.41 0l1.51-1.51a1 1 0 0 1 1.18-.21l1.73 1a1 1 0 0 0 1.09-.26l1.06-1.06a1 1 0 0 1 1.41 0l1.06 1.06a1 1 0 0 0 1.09.26l1.73-1a1 1 0 0 1 1.18.21l1.51 1.51a1 1 0 0 0 1.41 0l2.12-2.12a1 1 0 0 0 0-1.41l-1.51-1.51a1 1 0 0 1-.21-1.18l1-1.73a1 1 0 0 0-.26-1.09l-1.06-1.06a1 1 0 0 1 0-1.41z"/></svg>
+    </button>
+
+    <!-- 设置面板模态框 -->
+    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-40 hidden">
+        <div class="bg-white rounded-xl shadow-lg w-[95vw] max-w-md p-3 sm:p-6 relative">
+            <button id="closeSettings" class="absolute top-2 right-2 p-2 rounded-full hover:bg-gray-100">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <div class="space-y-4 sm:space-y-6">
+                <!-- 导出历史记录 -->
+                <div class="bg-gray-50 rounded-lg p-3 sm:p-4">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-bold text-blue-600">导出历史记录</span>
+                        <button id="exportBtn" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">导出</button>
+                    </div>
+                    <div class="text-gray-500 text-sm">将所有历史记录导出，方便备份和查看</div>
+                </div>
+                <!-- 导入历史记录 -->
+                <div class="bg-gray-50 rounded-lg p-3 sm:p-4">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-bold text-blue-600">导入历史记录</span>
+                        <input type="file" id="importFile" accept="application/json" class="hidden">
+                        <button id="importBtn" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">导入</button>
+                    </div>
+                    <div class="text-gray-500 text-sm">将.json文件导入，恢复历史记录</div>
+                </div>
+                <!-- 自动同步时间间隔 -->
+                <div class="bg-gray-50 rounded-lg p-3 sm:p-4">
+                    <div class="font-bold text-blue-600 mb-1">自动同步时间间隔</div>
+                    <div class="flex items-center gap-2 mb-1 flex-wrap">
+                        <button id="intervalDec" class="px-2 py-1 border rounded bg-gray-100 hover:bg-gray-200 text-gray-500">-</button>
+                        <input id="intervalInput" type="number" min="1" value="60" class="w-16 px-2 py-1 border rounded text-center">
+                        <button id="intervalInc" class="px-2 py-1 border rounded bg-gray-100 hover:bg-gray-200 text-gray-500">+</button>
+                        <span class="ml-2 text-gray-500 text-sm">分钟</span>
+                        <button id="saveInterval" class="ml-auto px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">保存</button>
+                    </div>
+                    <div class="text-gray-500 text-xs">单位：分钟，最小值为1</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 返回顶部按钮 -->
+    <button id="backToTop" class="fixed right-4 bottom-4 z-40 bg-white shadow-lg rounded-full p-2 text-blue-500 hover:bg-blue-100 transition-all hidden">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
+    </button>
+
+    <script>
+        let currentPage = 1;
+        let isLoading = false;
+        let hasMore = true;
+        let currentKeyword = '';
+        let currentAuthor = '';
+        let currentDate = '';
+        const DEFAULT_COVER = 'https://static.hdslb.com/images/akari.jpg';
+
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // 从服务器获取当前同步间隔
+        async function fetchSyncInterval() {
+            try {
+                const response = await fetch('/api/get-sync-interval');
+                const data = await response.json();
+                document.getElementById('intervalInput').value = data.interval / 60000; // 转换为分钟
+            } catch (error) {
+                console.error('获取同步间隔失败:', error);
+            }
+        }
+
+        // 页面加载时获取同步间隔
+        fetchSyncInterval();
+
+        // 加载历史记录
+        async function loadHistory(reset = false) {
+            if (reset) {
+                isLoading = false;
+                hasMore = true;
+                currentPage = 1;
+                document.getElementById('historyList').innerHTML = '';
+                document.getElementById('noMore').classList.add('hidden');
+            }
+            if (isLoading || !hasMore) return;
+            isLoading = true;
+            document.getElementById('loading').classList.remove('hidden');
+            try {
+                const response = await fetch(`/api/history?page=${currentPage}&pageSize=20&keyword=${currentKeyword}&authorKeyword=${currentAuthor}&date=${currentDate}`);
+                const data = await response.json();
+                const historyList = document.getElementById('historyList');
+                data.items.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'history-item bg-white rounded-xl shadow-md flex flex-col overflow-hidden';
+                    card.innerHTML = `
+                        <a href="${getContentUrl(item)}" target="_blank" class="block">
+                            <img src="/img-proxy?url=${encodeURIComponent(item.cover ? item.cover + '@760w_428h_1c.avif' : DEFAULT_COVER)}" alt="${item.title}" class="cover-img">
+                            <div class="p-4 flex flex-col gap-2">
+                                <div class="flex items-start justify-between gap-2">
+                                    <h3 class="text-base font-bold line-clamp-2 leading-snug flex-1">${item.title}</h3>
+                                    <button onclick="deleteHistory('${item.id}')" class="p-1 hover:bg-gray-100 rounded-full transition-colors ml-2 mt-0.5" title="删除">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2 lucide-trash-2 w-4 h-4 text-gray-500" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></svg>
+                                    </button>
+                                </div>
+                                <div class="flex justify-between items-center text-xs text-gray-500">
+                                    <span class="hover:text-pink-500 cursor-pointer" onclick="event.preventDefault(); window.open('https://space.bilibili.com/${item.author_mid}', '_blank')">${item.author_name}</span>
+                                    <span>${new Date(item.viewTime * 1000).toLocaleString()}</span>
+                                </div>
+                            </div>
+                        </a>
+                    `;
+                    historyList.appendChild(card);
+                });
+                hasMore = data.hasMore;
+                if (!hasMore) {
+                    document.getElementById('noMore').classList.remove('hidden');
+                }
+                currentPage++;
+            } catch (error) {
+                console.error('加载历史记录失败:', error);
+                alert('加载历史记录失败');
+            } finally {
+                isLoading = false;
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+
+        // 同步历史记录
+        async function syncHistory() {
+            const syncBtn = document.getElementById('syncBtn');
+            syncBtn.disabled = true;
+            syncBtn.textContent = '同步中...';
+            try {
+                const response = await fetch('/api/history/sync', { method: 'POST' });
+                const data = await response.json();
+                alert(data.message);
+                loadHistory(true);
+            } catch (error) {
+                console.error('同步失败:', error);
+                alert('同步失败: ' + error.message);
+            } finally {
+                syncBtn.disabled = false;
+                syncBtn.textContent = '同步历史';
+            }
+        }
+
+        // 删除历史记录
+        async function deleteHistory(id) {
+            if (!confirm('确定要删除这条记录吗？')) return;
+            try {
+                const response = await fetch(`/api/history/${id}`, { method: 'DELETE' });
+                const data = await response.json();
+                alert(data.message);
+                loadHistory(true);
+            } catch (error) {
+                console.error('删除失败:', error);
+                alert('删除失败: ' + error.message);
+            }
+        }
+
+        // 获取内容URL
+        function getContentUrl(item) {
+            switch (item.business) {
+                case 'archive':
+                    return `https://www.bilibili.com/video/${item.bvid}`;
+                case 'pgc':
+                    return item.uri || '';
+                case 'article':
+                    return `https://www.bilibili.com/read/cv${item.id}`;
+                case 'article-list':
+                    return `https://www.bilibili.com/read/cv${item.cid ?? item.id}`;
+                case 'live':
+                    return `https://live.bilibili.com/${item.id}`;
+                case 'cheese':
+                    return item.uri || '';
+                default:
+                    return `https://www.bilibili.com/video/${item.bvid}`;
+            }
+        }
+
+        // 监听滚动加载
+        window.addEventListener('scroll', debounce(() => {
+            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
+                loadHistory();
+            }
+        }, 200));
+
+        // 监听搜索输入
+        document.getElementById('searchInput').addEventListener('input', debounce((e) => {
+            currentKeyword = e.target.value;
+            loadHistory(true);
+        }, 500));
+        document.getElementById('authorInput').addEventListener('input', debounce((e) => {
+            currentAuthor = e.target.value;
+            loadHistory(true);
+        }, 500));
+        document.getElementById('dateInput').addEventListener('change', (e) => {
+            currentDate = e.target.value;
+            loadHistory(true);
+        });
+        document.getElementById('syncBtn').addEventListener('click', syncHistory);
+        // 初始加载
+        loadHistory();
+
+        // 日期按钮事件
+        const dateInput = document.getElementById('dateInput');
+        document.getElementById('datePrev').onclick = function() {
+            if (dateInput.value) {
+                const d = new Date(dateInput.value);
+                d.setDate(d.getDate() - 1);
+                dateInput.value = d.toISOString().split('T')[0];
+                currentDate = dateInput.value;
+                loadHistory(true);
+            }
+        };
+        document.getElementById('dateNext').onclick = function() {
+            if (dateInput.value) {
+                const d = new Date(dateInput.value);
+                d.setDate(d.getDate() + 1);
+                dateInput.value = d.toISOString().split('T')[0];
+                currentDate = dateInput.value;
+                loadHistory(true);
+            }
+        };
+        dateInput.addEventListener('change', function(e) {
+            currentDate = e.target.value;
+            loadHistory(true);
+        });
+        // 清除按钮事件
+        const authorInput = document.getElementById('authorInput');
+        const clearAuthor = document.getElementById('clearAuthor');
+        authorInput.addEventListener('input', debounce((e) => {
+            currentAuthor = e.target.value;
+            clearAuthor.classList.toggle('hidden', !e.target.value);
+            loadHistory(true);
+        }, 500));
+        clearAuthor.onclick = function() {
+            authorInput.value = '';
+            currentAuthor = '';
+            clearAuthor.classList.add('hidden');
+            loadHistory(true);
+        };
+        const searchInput = document.getElementById('searchInput');
+        const clearTitle = document.getElementById('clearTitle');
+        searchInput.addEventListener('input', debounce((e) => {
+            currentKeyword = e.target.value;
+            clearTitle.classList.toggle('hidden', !e.target.value);
+            loadHistory(true);
+        }, 500));
+        clearTitle.onclick = function() {
+            searchInput.value = '';
+            currentKeyword = '';
+            clearTitle.classList.add('hidden');
+            loadHistory(true);
+        };
+
+        // 设置按钮和面板逻辑
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsModal = document.getElementById('settingsModal');
+        const closeSettings = document.getElementById('closeSettings');
+        settingsBtn.onclick = () => settingsModal.classList.remove('hidden');
+        closeSettings.onclick = () => settingsModal.classList.add('hidden');
+        settingsModal.onclick = (e) => { if (e.target === settingsModal) settingsModal.classList.add('hidden'); };
+
+        // 导出历史记录
+        const exportBtn = document.getElementById('exportBtn');
+        exportBtn.onclick = async () => {
+            const res = await fetch('/api/history');
+            const data = await res.json();
+            const blob = new Blob([JSON.stringify(data.items, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bilibili-history-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
+
+        // 导入历史记录
+        const importBtn = document.getElementById('importBtn');
+        const importFile = document.getElementById('importFile');
+        importBtn.onclick = () => importFile.click();
+        importFile.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                const items = JSON.parse(text);
+                if (!Array.isArray(items)) throw new Error('文件格式错误');
+                // 逐条POST导入（可优化为批量API）
+                for (const item of items) {
+                    await fetch('/api/history', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(item)
+                    });
+                }
+                alert('导入成功');
+                loadHistory(true);
+            } catch (err) {
+                alert('导入失败: ' + err.message);
+            }
+        };
+
+        // 自动同步间隔
+        const intervalInput = document.getElementById('intervalInput');
+        const intervalDec = document.getElementById('intervalDec');
+        const intervalInc = document.getElementById('intervalInc');
+        const saveInterval = document.getElementById('saveInterval');
+        intervalDec.onclick = () => {
+            let v = Math.max(1, parseInt(intervalInput.value) - 1);
+            intervalInput.value = v;
+        };
+        intervalInc.onclick = () => {
+            let v = Math.max(1, parseInt(intervalInput.value) + 1);
+            intervalInput.value = v;
+        };
+        saveInterval.onclick = async () => {
+            const intervalInput = document.getElementById('intervalInput');
+            const interval = parseInt(intervalInput.value, 10);
+            if (isNaN(interval) || interval < 1) {
+                alert('请输入有效的同步间隔（最小1分钟）');
+                return;
+            }
+            try {
+                const response = await fetch('/api/set-sync-interval', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ interval: interval * 60000 }) // 转换为毫秒
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    alert('同步间隔已更新');
+                    fetchSyncInterval(); // 重新获取最新配置
+                } else {
+                    alert(data.error || '更新失败');
+                }
+            } catch (error) {
+                console.error('更新同步间隔失败:', error);
+                alert('更新失败');
+            }
+        };
+
+        // 返回顶部按钮逻辑
+        const backToTop = document.getElementById('backToTop');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 300) {
+                backToTop.classList.remove('hidden');
+            } else {
+                backToTop.classList.add('hidden');
+            }
+        });
+        backToTop.onclick = () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+    </script>
+</body>
+</html> 
