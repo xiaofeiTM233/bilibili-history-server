@@ -84,15 +84,53 @@ app.post('/api/history/sync', async (req, res) => {
 });
 
 // 删除历史记录
-app.delete('/api/history/:id', (req, res) => {
+app.delete('/api/history/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const history = JSON.parse(readFileSync(HISTORY_FILE, 'utf-8'));
-    const filtered = history.filter(item => item.id !== id);
+    const item = history.find(item => String(item.id) === String(id));
+    
+    if (!item) {
+      return res.status(404).json({ success: false, error: '记录不存在' });
+    }
+
+    // 从cookie中提取bili_jct
+    const cookieStr = config.bilibili.cookie;
+    const biliJctMatch = cookieStr.match(/bili_jct=([^;]+)/);
+    if (!biliJctMatch) {
+      throw new Error('未找到bili_jct，请检查cookie配置');
+    }
+    const biliJct = biliJctMatch[1];
+
+    // 调用B站API删除远程内容
+    const kid = `archive_${id}`;
+    const response = await fetch('https://api.bilibili.com/x/v2/history/delete', {
+      method: 'POST',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'accept-language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Cookie': config.bilibili.cookie
+      },
+      body: new URLSearchParams({
+        'kid': kid,
+        'csrf': biliJct
+      })
+    });
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(data.message || '删除远程内容失败');
+    }
+
+    // 删除本地记录
+    const filtered = history.filter(item => String(item.id) !== String(id));
     writeFileSync(HISTORY_FILE, JSON.stringify(filtered, null, 2));
-    res.json({ message: '删除成功' });
+    
+    res.json({ success: true, message: '删除成功' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('删除失败:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
