@@ -273,10 +273,12 @@
         // 监听搜索输入
         document.getElementById('searchInput').addEventListener('input', debounce((e) => {
             currentKeyword = e.target.value;
+            clearTitle.classList.toggle('hidden', !e.target.value);
             loadHistory(true);
         }, 500));
         document.getElementById('authorInput').addEventListener('input', debounce((e) => {
             currentAuthor = e.target.value;
+            clearAuthor.classList.toggle('hidden', !e.target.value);
             loadHistory(true);
         }, 500));
         document.getElementById('dateInput').addEventListener('change', (e) => {
@@ -314,11 +316,6 @@
         // 清除按钮事件
         const authorInput = document.getElementById('authorInput');
         const clearAuthor = document.getElementById('clearAuthor');
-        authorInput.addEventListener('input', debounce((e) => {
-            currentAuthor = e.target.value;
-            clearAuthor.classList.toggle('hidden', !e.target.value);
-            loadHistory(true);
-        }, 500));
         clearAuthor.onclick = function() {
             authorInput.value = '';
             currentAuthor = '';
@@ -327,11 +324,6 @@
         };
         const searchInput = document.getElementById('searchInput');
         const clearTitle = document.getElementById('clearTitle');
-        searchInput.addEventListener('input', debounce((e) => {
-            currentKeyword = e.target.value;
-            clearTitle.classList.toggle('hidden', !e.target.value);
-            loadHistory(true);
-        }, 500));
         clearTitle.onclick = function() {
             searchInput.value = '';
             currentKeyword = '';

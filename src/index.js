@@ -76,10 +76,14 @@ app.get('/api/history', (req, res) => {
 // 手动同步历史记录
 app.post('/api/history/sync', async (req, res) => {
   try {
-    await syncHistory();
-    res.json({ message: '同步成功' });
+    const result = await syncHistory();
+    res.json({ 
+      success: true, 
+      message: `同步成功，新增 ${result.newCount} 条记录，更新 ${result.updateCount} 条记录` 
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('同步历史记录失败:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

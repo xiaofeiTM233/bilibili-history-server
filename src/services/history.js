@@ -18,7 +18,9 @@ export async function syncHistory() {
     let view_at = 0;
     const type = 'all';
     const ps = 30;
-    const newHistory = [];
+    let newCount = 0;
+    let updateCount = 0;
+    let processedIds = new Set();
 
     while (hasMore) {
       const response = await fetch(
@@ -45,20 +47,11 @@ export async function syncHistory() {
       view_at = data.data.cursor.view_at;
 
       if (data.data.list.length > 0) {
-        // 检查是否已经同步过这些数据
-        const firstItem = data.data.list[0];
-        const lastItem = data.data.list[data.data.list.length - 1];
-        const firstItemExists = existingHistory.some(item => item.id === firstItem.history.oid);
-        const lastItemExists = existingHistory.some(item => item.id === lastItem.history.oid);
-
-        if (firstItemExists && lastItemExists) {
-          console.log('增量同步至此结束');
-          break;
-        }
+        let hasNewOrUpdated = false;
 
         // 处理新的历史记录
         for (const item of data.data.list) {
-          newHistory.push({
+          const historyItem = {
             id: item.history.oid,
             business: item.history.business,
             bvid: item.history.bvid,
@@ -71,34 +64,54 @@ export async function syncHistory() {
             author_name: item.author_name || '',
             author_mid: item.author_mid || '',
             timestamp: Date.now(),
-          });
+          };
+
+          // 检查是否已经处理过这个ID
+          if (processedIds.has(historyItem.id)) {
+            continue;
+          }
+          processedIds.add(historyItem.id);
+
+          const existingIndex = existingHistory.findIndex(h => h.id === historyItem.id);
+          if (existingIndex === -1) {
+            // 新记录
+            existingHistory.unshift(historyItem);
+            newCount++;
+            hasNewOrUpdated = true;
+          } else {
+            // 更新已存在记录的viewTime
+            if (existingHistory[existingIndex].viewTime !== historyItem.viewTime) {
+              existingHistory[existingIndex].viewTime = historyItem.viewTime;
+              updateCount++;
+              hasNewOrUpdated = true;
+            }
+          }
         }
 
         console.log(`同步了${data.data.list.length}条历史记录`);
+
+        // 如果这一批数据中没有任何新增或更新，且已经处理了足够多的记录，就退出循环
+        if (!hasNewOrUpdated && processedIds.size >= 100) {
+          console.log('没有新的更新，同步结束');
+          break;
+        }
 
         // 添加延时，避免请求过于频繁
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
 
-    // 合并新旧数据，去重
-    const mergedHistory = [...existingHistory];
-    for (const newItem of newHistory) {
-      const existingIndex = mergedHistory.findIndex(item => item.id === newItem.id);
-      if (existingIndex === -1) {
-        mergedHistory.push(newItem);
-      }
-    }
-
     // 按观看时间排序
-    mergedHistory.sort((a, b) => b.viewTime - a.viewTime);
+    existingHistory.sort((a, b) => b.viewTime - a.viewTime);
 
     // 保存到文件
-    writeFileSync(HISTORY_FILE, JSON.stringify(mergedHistory, null, 2));
+    writeFileSync(HISTORY_FILE, JSON.stringify(existingHistory, null, 2));
 
     return {
       success: true,
-      message: `成功同步 ${newHistory.length} 条新记录`,
+      newCount,
+      updateCount,
+      message: `成功同步 ${newCount} 条新记录，更新 ${updateCount} 条记录`
     };
   } catch (error) {
     console.error('同步历史记录失败:', error);
